@@ -78,7 +78,12 @@ std::vector<DICOM *> readDICOMDirectory( std::string dirName ) {
 
 
   gdcm::Directory dir;
-  unsigned int nfiles = dir.Load( dirName );
+  unsigned int nfiles = dir.Load( dirName, true );  // recursive
+
+  if (nfiles == 0) {
+    std::vector<DICOM *> images;
+    return images;
+  }
 
   // calculate the number of slice positions found (estimates the number of volumes)
   gdcm::Scanner s;
@@ -88,9 +93,16 @@ std::vector<DICOM *> readDICOMDirectory( std::string dirName ) {
   const gdcm::Scanner::ValuesType &values = s.GetValues();
   long nvalues = values.size();
   int nvolumes = std::floor((double)nfiles/nvalues + 0.5f);
-  //std::cout << "There are " << nvalues << " different type of values in " << nfiles << " different files." << std::endl;
-  //std::cout << "Series is composed of " << nvolumes << " different 3D volumes" << std::endl;
-
+  if (nvalues == 1) {
+     std::cerr << "  There is only " << nvalues << " image position value in " << nfiles << " files." << std::endl;
+  } else {
+     std::cerr << "  There are " << nvalues << " different image position values in " << nfiles << " files." << std::endl;    
+  }
+  if (nvolumes == 1) {
+     std::cerr << "  Series contains " << nvolumes << " 3D volume." << std::endl;
+  } else {
+     std::cerr << "  Series contains " << nvolumes << " 3D volumes." << std::endl;    
+  }
 
     std::vector<DICOM *> images;
 
@@ -110,8 +122,7 @@ std::vector<DICOM *> readDICOMDirectory( std::string dirName ) {
     nameGenerator->SetRecursive( true );
     nameGenerator->SetDirectory(dirName);
 
-    try
-    {
+    try {
         typedef std::vector<std::string> SeriesIdContainer;
         const SeriesIdContainer &seriesUID = nameGenerator->GetSeriesUIDs();
         SeriesIdContainer::const_iterator seriesItr = seriesUID.begin();
@@ -119,20 +130,17 @@ std::vector<DICOM *> readDICOMDirectory( std::string dirName ) {
 
         if (seriesItr != seriesEnd)
         {
-          //std::cout << "The directory: ";
-          //std::cout << dirName << std::endl;
-          //std::cout << "Contains the following DICOM Series: ";
-          //std::cout << std::endl;
-        }
-        else
-        {
-          //std::cout << "No DICOMs in: " << dirName << std::endl;
+          std::cerr << "  The directory: ";
+          std::cerr << dirName << std::endl;
+          std::cerr << "  contains the following DICOM Series: ";
+          std::cerr << std::endl;
+        } else  {
+            std::cerr << "No DICOMs in: " << dirName << std::endl;
             return images;
         }
 
-        while (seriesItr != seriesEnd)
-        {
-          //std::cout << seriesItr->c_str() << std::endl;
+        while (seriesItr != seriesEnd) {
+            std::cerr << "    " << seriesItr->c_str() << std::endl;
             ++seriesItr;
         }
 
@@ -150,11 +158,11 @@ std::vector<DICOM *> readDICOMDirectory( std::string dirName ) {
             int volumes = 1;
             std::vector< std::vector<std::string> > detectedVolumes;
             // find out if this should be split again (nvalues could be larger than number of slices in this stack)
-            if (fileNames.size() != nvalues) {
-                fprintf(stdout, "WARNING: more slices %d found that in stack %d, split did not work correctly\n", (int)fileNames.size(), (int)nvalues);
+            if (fileNames.size() > nvalues) {
+                fprintf(stdout, "WARNING: number of slices [%d] differs from stack size [%d], split did not work correctly\n", (int)fileNames.size(), (int)nvalues);
                 // we need to split the fileNames into different volumes
                 volumes = (int)std::floor((double)fileNames.size()/nvalues+0.5);
-                fprintf(stdout, "WE EXPECT: %d volumes here\n",volumes);
+                fprintf(stderr, "Error: we expected %d volumes here\n",volumes);
                 // split the filenames into different blocks
 
                 gdcm::Scanner s;
@@ -175,7 +183,7 @@ std::vector<DICOM *> readDICOMDirectory( std::string dirName ) {
                    const char *filename = file->c_str();
                    const char *value = s.GetValue(filename, gdcm::Tag(0x20,0x32));
                    int idx = (count % (volumes));
-                   fprintf(stdout, "Filename is: %s with value: %s volume %d\n", filename, value, idx);
+                   fprintf(stderr, "Filename is \"%s\" with value: \"%s\" volume %d\n", filename, value, idx);
                    detectedVolumes[idx].push_back(filename);
                    count++;
                 }

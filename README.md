@@ -23,3 +23,14 @@ Tag 0043|1039 not found in the DICOM header
 ```
 
 The returned 'motion' value is unit-less. Scans with more motion would tend to have a larger value.
+
+## How to build
+
+After download and compile of cmake/ITK you can try to build the executable 'motion_detection' with:
+```
+mkdir bin
+cd bin
+cmake ../src
+make
+```
+
